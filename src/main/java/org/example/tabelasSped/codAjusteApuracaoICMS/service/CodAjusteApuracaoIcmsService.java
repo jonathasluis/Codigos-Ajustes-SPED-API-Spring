@@ -1,5 +1,6 @@
 package org.example.tabelasSped.codAjusteApuracaoICMS.service;
 
+import jakarta.persistence.criteria.Predicate;
 import org.example.tabelasSped.codAjusteApuracaoICMS.dto.CodAjusteApuracaoIcmsInputDto;
 import org.example.tabelasSped.codAjusteApuracaoICMS.dto.CodAjusteApuracaoIcmsOutputDto;
 import org.example.tabelasSped.codAjusteApuracaoICMS.entity.CodAjusteApuracaoIcmsEntity;
@@ -7,8 +8,7 @@ import org.example.tabelasSped.codAjusteApuracaoICMS.repository.CodAjusteApuraca
 import org.example.tabelasSped.codAjusteApuracaoICMS.util.SaamIntegration;
 import org.example.tabelasSped.codAjusteApuracaoICMS.util.Util;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Example;
-import org.springframework.data.domain.ExampleMatcher;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,9 +22,21 @@ public class CodAjusteApuracaoIcmsService {
     @Autowired
     private CodAjusteApuracaoIcmsRepository codAjusteApuracaoIcmsRepository;
 
-    public List<CodAjusteApuracaoIcmsOutputDto> pesquisarCodigos(String codigoAjuste, String uf, String dataInicio) {
-        Example<CodAjusteApuracaoIcmsEntity> example = getExample(codigoAjuste, uf, dataInicio);
-        return codAjusteApuracaoIcmsRepository.findAll(example).stream()
+    public List<CodAjusteApuracaoIcmsOutputDto> pesquisarCodigos(List<String> codigosAjuste, String uf, String dataInicio) {
+        Specification<CodAjusteApuracaoIcmsEntity> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (codigosAjuste != null && !codigosAjuste.isEmpty()) {
+                predicates.add(root.get("codigoAjuste").in(codigosAjuste));
+            }
+            if (uf != null && !uf.isBlank()) {
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("uf")), "%" + uf.toLowerCase() + "%"));
+            }
+            if (dataInicio != null && !dataInicio.isBlank()) {
+                predicates.add(criteriaBuilder.like(root.get("dataInicio"), "%" + dataInicio + "%"));
+            }
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+        return codAjusteApuracaoIcmsRepository.findAll(spec).stream()
                                               .map(Util::convertEntiTyToOutputDto)
                                               .toList();
     }
@@ -73,20 +85,8 @@ public class CodAjusteApuracaoIcmsService {
         return resultado;
     }
 
-    private Example<CodAjusteApuracaoIcmsEntity> getExample(String codigoAjuste, String uf, String dataInicio) {
-        CodAjusteApuracaoIcmsEntity probe = new CodAjusteApuracaoIcmsEntity();
-        probe.setCodigoAjuste(codigoAjuste);
-        probe.setUf(uf);
-        probe.setDataInicio(dataInicio);
-        ExampleMatcher matcher = ExampleMatcher.matching()
-                                               .withIgnoreCase()
-                                               .withStringMatcher(ExampleMatcher.StringMatcher.CONTAINING)
-                                               .withIgnoreNullValues();
-        return Example.of(probe, matcher);
-    }
-
-    public Map<String, String> getSqlFiles(String codigoAjuste, String uf, String dataInicio) {
-        List<CodAjusteApuracaoIcmsOutputDto> dtos = pesquisarCodigos(codigoAjuste, uf, dataInicio);
+    public Map<String, String> getSqlFiles(List<String> codigosAjuste, String uf, String dataInicio) {
+        List<CodAjusteApuracaoIcmsOutputDto> dtos = pesquisarCodigos(codigosAjuste, uf, dataInicio);
         return SaamIntegration.getMapSqlFiles(dtos);
     }
 

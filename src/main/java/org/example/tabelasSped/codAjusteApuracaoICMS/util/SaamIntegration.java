@@ -18,7 +18,19 @@ public class SaamIntegration {
                 "RIGHT JOIN (\n" +
                 String.join(" UNION \n", unionSelects) +
                 ") b ON trim(a.cod_aj_apur) = trim(b.cod_aj_apur) AND trim(a.data_inicio) = trim(b.data_inicio)\n" +
-                "WHERE a.cod_aj_apur IS NULL;\n";
+                "WHERE a.cod_aj_apur IS NULL;\n" +
+                "#paradasaam* \n";
+    }
+
+    private static String getUpdateSqlStatmentSAAM(List<String> unionSelects) {
+        return "UPDATE codigos_ajustes_apuracao a \n" +
+                "SET data_fim = b.data_fim \n" +
+                "FROM (\n" +
+                String.join(" UNION \n", unionSelects) +
+                ") b WHERE trim(a.cod_aj_apur) = trim(b.cod_aj_apur) \n " +
+                "AND trim(a.data_inicio) = trim(b.data_inicio)\n" +
+                "AND trim(a.data_fim) <> trim(b.data_fim);\n" +
+                "#paradasaam* \n";
     }
 
     private static String getSelectStatment(CodAjusteApuracaoIcmsOutputDto dto) {
@@ -42,7 +54,8 @@ public class SaamIntegration {
             CodAjusteApuracaoIcmsOutputDto dto = dtos.get(i);
             statmentsListSelect.add(getSelectStatment(dto));
             if ((i + 1) % TAMANHO_LOTE == 0 || i == dtos.size() - 1) {
-                sqlFiles.put("script_ajustes_" + fileCounter + ".sql", getInsertSqlStatmentSAAM(statmentsListSelect));
+                sqlFiles.put("script_ajustes_INSERT_" + fileCounter + ".txt", getInsertSqlStatmentSAAM(statmentsListSelect));
+                sqlFiles.put("script_ajustes_UPDATE_" + fileCounter + ".txt", getUpdateSqlStatmentSAAM(statmentsListSelect));
                 statmentsListSelect.clear();
                 fileCounter++;
             }
